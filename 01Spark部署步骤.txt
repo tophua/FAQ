@@ -1,0 +1,220 @@
+===========创建linux管理员用户=============
+1)adduser spark 
+#添加一个名为spark的用户
+2)passwd  spark
+#修改spark的用户密码
+3)useradd  -p "spark"  spark 添加用户指定密码
+4)允许赋予root权限
+修改 /etc/sudoers 文件，找到下面一行，把前面的注释(#)去掉
+%wheel ALL=(ALL) ALL
+5)usermod -g root spark #修改用户,使其属于root组(wheel)
+#添查当前用户所在的组,
+6)使用命令 sudo – ,即可获得root权限进行操作
+7)删除用户 userdel -r spark
+===========配置秘钥登录===========
+1)配置秘钥登录
+vi /etc/ssh/sshd_config
+#将54,55行的注释取消，改为：
+RSAAuthentication yes
+PubkeyAuthentication yes
+AuthorizedKeysFile .ssh/authorized_keys
+service sshd restart
+3)配置 ssh 无密码访问集群机器
+ 在几台机器中分别执行以下两个命令,以便无密码登录到 localhost
+	ssh-keygen -t dsa -P ''  -f ~/.ssh/id_dsa
+	cat ~/.ssh/id_dsa.pub >> ~/.ssh/authorized_keys
+4)将 slave01 和 slave02 的公钥 id_dsa.pub 传给 master
+	 scp ~/.ssh/id_dsa.pub spark01@192.168.0.39:/home/spark01/.ssh/id_dsa.pub.slave02
+	 scp ~/.ssh/id_dsa.pub spark01@192.168.0.39:/home/spark01/.ssh/id_dsa.pub.slave03
+	 scp ~/.ssh/id_dsa.pub spark01@192.168.0.39:/home/spark01/.ssh/id_dsa.pub.slave04
+	 scp ~/.ssh/id_dsa.pub spark01@192.168.0.39:/home/spark01/.ssh/id_dsa.pub.slave05
+	 scp ~/.ssh/id_dsa.pub spark01@192.168.0.39:/home/spark01/.ssh/id_dsa.pub.slave06
+	  scp ~/.ssh/id_dsa.pub 192.168.0.39:/root/.ssh/id_dsa.pub.slave07
+5)将 slave01 和 slave02的公钥信息追加到 master 的 authorized_keys文件中
+	#cd ~/.ssh
+	cat ~/.ssh/id_dsa.pub.slave02 >> authorized_keys
+	cat ~/.ssh/id_dsa.pub.slave03 >> authorized_keys
+	cat ~/.ssh/id_dsa.pub.slave04 >> authorized_keys
+	cat ~/.ssh/id_dsa.pub.slave05 >> authorized_keys
+	cat ~/.ssh/id_dsa.pub.slave06 >> authorized_keys
+	cat ~/.ssh/id_dsa.pub.slave07 >> authorized_keys
+6)将 master 的公钥信息 authorized_keys 复制到 slave01 和 slave02 的 .ssh 目录下
+	scp authorized_keys spark02@192.168.0.39:/home/spark02/.ssh/authorized_keys
+	scp authorized_keys spark03@192.168.0.13:/home/spark03/.ssh/authorized_keys
+	scp authorized_keys spark04@192.168.0.27:/home/spark04/.ssh/authorized_keys
+	scp authorized_keys spark05@192.168.0.6:/home/spark05/.ssh/authorized_keys
+	scp authorized_keys 192.168.0.12:/root/.ssh/authorized_keys
+	scp authorized_keys 192.168.0.40:/root/.ssh/authorized_keys
+
+7)测试:ssh spark02@192.168.0.39
+8)退出测试exit
+
+
+===========Spark部署(Centos)步骤=============
+1)下载spark-1.5.0-bin-hadoop2.6.tgz
+2)解压 tar -zxf spark-1.5.0-bin-hadoop2.6.tgz
+3)删除版本 mv spark-1.5.0-bin-hadoop2.6 spark1.5
+4)在/opt目录下新建一个taiji安装目录  mkdir -p  /opt/taiji
+6)把spark移动到taiji安装目录   mv spark1.5 /opt/taiji/,cp -rf  spark1.5  /opt/taiji/
+7)修改spark1.5主目录访问权限用户  chown -R spark01:root /opt/taiji/spark1.5
+8)修改spark1.5访问目录 chmod -R 755 /opt/taiji/spark1.5 (775属主有读写执行权限,而属组用户和其他用户只有读、执行权限)
+9)进入spark1.5目录 cd /opt/taiji/spark1.5
+10)在.bash_profile文件中增加到PATH变量   
+vi  ~/.bash_profile,同时修改spark-env.sh,其他用户可以启动Spark程序
+
+export JAVA_HOME=/opt/jdk/jdk1.7
+export SCALA_HOME=/opt/jdk/scala2.10.4
+export SPARK_HOME=/opt/spark1.5
+export PATH=$SPARK_HOME/sbin:$SPARK_HOME/bin:$SCALA_HOME/bin:$JAVA_HOME/bin:$PATH
+export CLASSPATH=.:$JAVA_HOME/lib/dt.jar:$JAVA_HOME/lib/tools.jar
+=======如果8080端口被tcomat占用==========
+#export SPARK_MASTER_WEBUI_PORT=8088
+
+12)加载.bash_profile文件立即生效 source ~/.bash_profile,可以打开新的终端立即生效
+13)在/var目录下创建log目录
+mkdir -p /var/log/spark1.5
+14)设置hduser为spark1.5 log目录的权限用户 
+ chown -R spark02:root /var/log/spark1.5
+15)创建Spark tmp目录
+mkdir -p /tmp/spark1.5
+16)配置Spark运行环境日志目录文件
+vi  /opt/spark1.5/conf/spark-env.sh
+
+#export YARN_CONF_DIR=/opt/taiji/hadoop/etc/Hadoop
+
+export SPARK_LOG_DIR=/var/log/spark1.5
+export SPARK_WORKER_DIR=/tmp/spark1.5
+ 
+17)改成成可执行文件 chmod 777 spark-env.sh
+
+===========配置jdk1.7和scala环境===========
+1)spark指定jdk1.7
+解压 tar -zxf jdk-7u80-linux-i586.tar.gz
+2)删除版本 mv jdk1.7.0_80 jdk1.7
+3)把配置文件夹移到opt/jdk文件夹下 
+mkdir -p /opt/jdk
+mv  jdk1.7 /opt/jdk
+===scala安装参考jdk1.7======
+4)配置Spark的JDK运行环境日志目录文件
+cd /etc/spark1.5 
+vi spark-env.sh
+export JAVA_HOME=/opt/jdk/jdk1.7
+export SCALA_HOME=/opt/jdk/scala2.10.4
+export SPARK_HOME=/opt/spark1.5
+export PATH=$SPARK_HOME/sbin:$SPARK_HOME/bin:$SCALA_HOME/bin:$JAVA_HOME/bin:$PATH
+export CLASSPATH=.:$JAVA_HOME/lib/dt.jar:$JAVA_HOME/lib/tools.jar
+5)改成可执行文件 chmod 777 spark-env.sh
+6)查看内容cat spark-env.sh
+7)source spark-env.sh
+
+8)复制配置文件
+	scp /home/spark01/.bash_profile 192.168.0.13:/home/spark03/
+
+
+配置Spark集群
+1)#将Worker主机名加入 vi /etc/spark/conf/slaves
+2)#spark-env.sh 为Spark进程启动时需要加载的配置 cp spark-env.sh.template spark-env.sh
+
+
+  scp spark-env.sh root@192.168.0.39:/etc/spark/conf/
+
+
+  scp -r scala2.10.4 root@192.168.0.39:/opt/
+
+3)启动集群:
+start-master.sh  
+start-slave.sh 
+4)查看进程 
+jps -l
+ps -ef|grep spark是否启动
+
+5)客户端连接/opt/spark1.5/bin/spark-shell --master spark://192.168.0.39:7070尝试连接
+
+=================单个节点启动方式=============================
+
+/opt/spark1.5/sbin/start-slave.sh 192.168.0.39:7077
+==============Spark运行在Standalone模式下产生的临时目录的问题========================
+   Failed to create a temp directory (under /tmp) after 10 attempts!
+  1)修改为:在spark-defaults.conf 下增加一行
+	spark.local.dir /home/hadoop/data/sparktmp
+
+
+
+==========Linux乱码解决方式===================
+1)vi  /etc/sysconfig/i18n 
+#LANG="zh_CN.UTF-8"(中文)
+SYSFONT="latarcyrheb-sun16"
+SUPPORTED="zh_CN.UTF-8:zh_CN:zh"
+
+LANG="en_US.UTF-8"
+SYSFONT="latarcyrheb-sun16"
+==========Linux查看端口被占用解决方式===================
+1) netstat -anp |grep 8088
+2)查看某一端口的占用情况lsof -i:端口号 lsof -i:8080
+3) 根据进程ID查询找占用端口程序 ps -ef|grep 3812(进程ID)
+
+
+============linux下vi操作Found a swap file by the name========
+1)ls -a
+2)rm .Test.java.swp 
+==============关闭防火墙等服务==========
+# service iptables stop
+# chkconfig iptables off     //关闭开机启动防火墙
+
+
+==================如果Master UI不能访问=====================
+1)查看端口是否被占用
+2)关闭防火墙服务
+3)下载tomcat 启动查看是否服务被停止
+
+
+=================如何查看Linux是32位还是64位==================
+1)file /sbin/init 或者 file /bin/ls
+2)getconf LONG_BIT
+
+
+================增加防火墙======================================
+1)vi /etc/sysconfig/iptables  #编辑
+
+2)-A RH-Firewall-1-INPUT -m state --state NEW -m tcp -p tcp --dport 27017 -j ACCEPT  #允许27017端口通过防火墙
+
+3)/etc/init.d/iptables restart #重启防火墙使配置生效
+4)windows安装telnet客户端 命令telnet 192.168.0.17 8081 
+
+==============linux下找出占用空间最大的目录 ======
+du -h --max-depth=1 /path
+先在/path目录下找出最大的目录path1，然后再在path1下找出最大的目录，这样一级一级就可以找出占用空间最大的目录了
+du -h --max-depth=1 /path/path1
+
+
+================Linux开通telnet方式============================
+1)检查linux版本 cat /etc/issue  
+CentOS Linux release 6.0 (Final)
+Kernel \r on an \m
+2)检查是否已经安装telnet
+rpm -qa | grep telnet
+3)安装telnet及telnet-server,注意，需要root权限来安装 下载telnet-server
+ rpm -ivh telnet-server-0.17-47.el6_3.1.i686.rpm
+4)
+
+
+
+===========安装telnet遇到error: Failed dependencies:==============
+           xinetd is needed by telnet-server-0.17-35.i386
+解决方法：
+1、先安装xinetd包
+rpm -ivh xinetd-2.3.14-10.el5.x86_64.rpm
+此rpm包在光盘介质中可以找到。
+
+2、再安装telnet包
+rpm -ivh telnet-server-0.17-35.i386.rpm
+
+3、启动xinetd服务
+service xinetd start
+总之，需要先安装xinetd包即可。
+
+4. 现在可以安装我们需要的rpm包了
+rpm -ivh telnet-server-0.17-35.i386.rpm
+
+参考:Spark 运维实战
+https://taoistwar.gitbooks.io/spark-operationand-maintenance-management/content/spark_optimize/index.html

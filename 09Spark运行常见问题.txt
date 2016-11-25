@@ -1,0 +1,33 @@
+===========运行Spark-shell报错ERROR SparkUncaughtExceptionHandler=============
+1)把Spark-env.sh的
+SPARK_MASTER_IP=10.9.2.100或者域名
+经测试spark://必须保持一致
+spark-shell --master spark://10.9.2.100:7079 --jars d:\spark\jdbc\mysql5.134.jar
+
+2)将spark-shell 主要问题spark://192.168.0.39:7079 改成域名方式 spark://xcsq:7079 
+3)windows改成 
+C:/WINDOWS/system32/drivers/etc/hosts 增加域名和IP对应
+4)Linux 修改/etc/hosts文件
+6)查看监听器是否启动及防火墙
+7)linux 登录用户不能与mast用户相同
+
+===========如何查看Windows下端口占用情况=============
+
+1)在开始-运行，输入CMD打开命令行界面，输入命令
+ netstat -ano | findstr "80" 
+ 具体对应的行是
+协议    本地地址        外部地址          状态          PID
+2)如果想看某个进程具体是哪个进程可以使用下面命令
+tasklist | findstr "5584"（注 5584是进程的id即PID）
+spark-shell --master spark://mzhy:7077
+
+ sc.parallelize(1 until 10000).count
+
+===========WARN TaskSchedulerImpl: Initial job has not accepted any resources; check your cluster UI to ensure that workers are registered and have sufficient resources=============
+1)
+16/11/13 10:11:16 WARN ReliableDeliverySupervisor: Association with remote system [akka.tcp://sparkDriver@127.0.0.1:4995] has failed, address is now gated for [5000] ms. Reason: [Association failed with [akka.tcp://sparkDriver@127.0.0.1:4995]] Caused by: [Connection refused: /127.0.0.1:4995]
+Exception in thread "main" akka.actor.ActorNotFound: Actor not found for: ActorSelection[Anchor(akka.tcp://sparkDriver@127.0.0.1:4995/), Path(/user/CoarseGrainedScheduler)]
+ 解决方式
+1)查看work行日志stderr文件
+2)使用telnet 端口号查看网络是否通
+3）

@@ -1,0 +1,70 @@
+===========zookeeper部署(Centos)步骤=============
+1)下载zookeeper-3.4.9.tar.gz
+2)解压 tar -zxf zookeeper-3.4.9.tar.gz
+3)删除版本 mv zookeeper-3.4.9 zookeeper3.4.9
+4)在/opt目录下新建一个taiji安装目录  mkdir -p  /opt/taiji
+5)在bash_profile里面,配置zookeeper的bin目录 vi  ~/.bash_profile
+	export ZOOKEEPER_HOME=/opt/zookeeper3.4.9/bin
+	source  ~/.bash_profile 执行立即配置文件生效
+6)修改zookeeper配置文件
+	在zookeeper目录下添加data,logs文件夹,用来放日志和数据
+	mkdir -p /opt/zookeeper3.4.9/logs
+	mkdir -p /opt/zookeeper3.4.9/data
+7)进入data文件夹,添加名为myid的文件。修改里面参数,在master上修改myid,id号为0
+	cd /opt/zookeeper3.4.9/data
+	echo 0 > myid
+8)进入里面到conf文件夹,复制zoo_sample.cfg文件，命明为zoo.cfg
+      cd /opt/zookeeper3.4.9/conf
+      cp  zoo_sample.cfg zoo.cfg
+9) 用vi编译器修改zoo.cfg文件
+    vi /opt/zookeeper3.4.9/conf/zoo.cfg
+    #日志可以放到tmp目录下
+    dataDir=/opt/zookeeper3.4.9/data
+    dataLogDir=/opt/zookeeper3.4.9/logs 
+    #这是二台zookeeper集群的名称端口号
+    server.0=192.168.0.39:28888:3888
+    server.1=192.168.0.17:28888:3888
+10)scp到其他master(一般是3台master)
+	其他机器切记修改myid
+    scp -r /opt/zookeeper3.4.9 192.168.0.17:/opt/
+    #scp -r /opt/zookeeper3.4.9 192.168.0.13:/opt/
+11)进入192.168.0.17切记修改myid
+echo 1 > myid
+12)在spark1,spark2两个节点上分别启动zookeeper
+cd /opt/zookeeper3.4.9/
+bin/zkServer.sh start
+13)查看进程进否存在
+  jps
+#QuorumPeerMain
+===============配置Spark的HA======================
+(1)进到spark的配置目录，在spark-env.sh修改如下,同时去掉SPARK_MASTER_IP
+#spark.deploy.zookeeper.url  ZooKeeper的Server地址
+#spark.deploy.zookeeper.dir  默认值 /spark,ZooKeeper 保存集群元数据信息的文件目录，包括Worker，Driver和Application
+-Xms512m // JVM最小的内存启动
+-Xmx1024m // JVM最大可得到的内存大小
+-XX:MaxPermSize=256m // JVM运行是分配的最大永久性内存大小。不会被垃圾回收的内存。
+
+export SPARK_DAEMON_JAVA_OPTS="-Dspark.deploy.recoveryMode=ZOOKEEPER -Dspark.deploy.zookeeper.url=192.1680.39:2181,192.1680.17:2181 -Dspark.deploy.zookeeper.dir=/spark"
+#export SPARK_MASTER_IP=spark1
+
+(2)把这个配置文件分发到各个节点上去
+   scp spark-env.sh root@spark2:/opt/spark1.5/conf/
+(3)启动spark集群
+   sbin/start-all.sh 
+(4)进到spark2(192.168.232.152)节点,把start-master.sh 启动,当spark1(192.168.232.147)挂掉时，spark2顶替当master
+   sbin/start-master.sh 
+(5) 查看spark1和spark2上运行的哪些进程
+   jps
+ 
+
+
+
+============启动zookeeper 客户端的时候报Will not attempt to authenticate using SASL (unknown error) ====================
+1)一般说是 /etc/hosts 文件配置有错。或者是zoo.cfg 有错
+2)防火墙未关闭
+检查防火墙状态：service iptables status
+
+暂时关闭防火墙：service iptables stop
+
+永久关闭防火墙：chkconfig iptables off
+

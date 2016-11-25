@@ -1,0 +1,160 @@
+===========HDFS的安装和部署(Centos)步骤=============
+1#准备工作
+在三台机器上创建相同的目录路径为HDFS运行准备环境，比如在/data目录下创建hadoop目录，将其属主改成hadoop，然后在下面如下创建4个目录：
+install：Hadoop源码解压后，放在该目录下
+name：HDFS的名字节点存放目录
+data01, data02：HDFS的数据存放目录，当然也可以是一个。
+
+
+
+tmp：临时空间
+注意：name目录只存放在master上，且权限为755，否则会导致后面的格式化失败。
+mkdir -p /opt/hadoop2.6/data01
+mkdir -p /opt/hadoop2.6/data02
+mkdir -p /tmp/hadoop2.6/
+mkdir -p /opt/hadoop2.6/dfsdata
+mkdir -p /tmp/hadoop2.6/tmp
+
+4)cp -r hadoop2.6 /opt/(复制hadoop到 /opt目录下)
+5)在.bash_profile文件中增加Hadoop到PATH变量   
+vi  ~/.bash_profile,同时修改etc/haddop/hadoop-env.sh,其他用户可以启动Spark程序
+
+1)配置文件句柄数
+ulimit -n 65535
+修改操作系统重启时默认的句柄数：
+vi /etc/security/limits.conf
+\* hard nofile 65535
+\* soft nofile 65535
+=============安装hadoop=============
+4#下载hadoop-2.6.4.tar.gz,注意要和Spark版本下载的一致
+2)解压 tar -zxf hadoop-2.6.4.tar.gz 
+3)删除版本 mv hadoop-2.6.4 hadoop2.6
+
+==========配置hadoop-env.sh=========
+修改hadoop目录下etc/hadoop/hadoop-env.sh的环境变量，在末尾添加：
+export JAVA_HOME=/opt/jdk/jdk1.7
+===========配置子节点===============
+vi etc/hadoop/slaves
+xcsq
+shjz
+mzhy2
+==========配置core-site.xml=====
+修改hadoop目录下conf/core-site.xml的配置文件，在标签中添加如下内容：
+vi etc/hadoop/core-site.xml
+<property>
+<name>fs.default.name</name>
+<value>hdfs://xcsq:9000</value>
+</property>
+<property>
+<name>hadoop.tmp.dir</name>
+<value>/home/${user.name}/tmp</value>
+</property>
+<property>
+<name>fs.trash.interval</name>
+<value>1440</value>
+</property>
+<property> 
+<name>dfs.webhdfs.enabled</name> 
+<value>true</value>
+</property>
+#名称节点的http协议访问地址与端口
+<property> 
+<name>dfs.http.address</name> 
+<value>0.0.0.0:8088</value>
+</property>
+#数据节点的HTTP协议访问地址和端口
+<property> 
+<name>dfs.datanode.http.address </name> 
+<value>0.0.0.0:8080</value>
+</property>
+
+
+说明：
+　　fs.defaultDFS：设置NameNode的IP和端口
+　　hadoop.tmp.dir：设置Hadoop临时目录，（默认/tmp，机器重启会丢失数据！）
+    fs.trash.interval：开启Hadoop回收站
+=========配置hdfs-site.xml========
+修改hadoop目录下etc/hadoop/hdfs-site.xml的配置文件，在标签中添加如下内容：
+vi etc/hadoop/hdfs-site.xml
+<property>
+<name>dfs.replication</name>
+<value>1</value>
+</property>
+<property>
+<name>dfs.namenode.name.dir</name>
+<value>/home/${user.name}/dfs_name</value>
+</property>
+<property>
+<name>dfs.datanode.data.dir</name>
+<value>/home/${user.name}/dfs_data</value>
+</property>
+<property>
+<name>dfs.support.append</name>
+<value>true</value>
+</property>
+<property>
+<name>dfs.datanode.max.xcievers</name>
+<value>4096</value>
+</property>
+
+说明：
+　　dfs.replication：文件复本数
+　　dfs.namenode.name.dir：设置NameNode存储元数据(fsimage)的本地文件系统位置
+　　dfs.datanode.data.dir：设置DataNode存储数据的本地文件系统位置
+　　dfs.support.append：设置HDFS是否支持在文件末尾追加数据
+　　dfs.datanode.max.xcievers：设置datanode可以创建的最大xcievers数
+
+
+7)启动初始化namenode节点
+$ /opt/hadoop2.6/bin/hdfs namenode -format
+8)启动Hadoop DFS守护
+  /opt/hadoop2.6/sbin/start-dfs.sh
+9)WEB界面
+ HDFS启动后，可以通过WEB界面来查看，缺省端口为50070
+   http://192.168.0.39:50070/
+ 
+
+=================ssh: Could not resolve hostname warning====
+export HADOOP_COMMON_LIB_NATIVE_DIR=$HADOOP_HOME/lib/native  
+export HADOOP_OPTS="-Djava.library.path=$HADOOP_HOME/lib/native" 
+
+四  运行wordcount
+在hdfs中创建一个统计目录，输出目录不用创建，否则运行wordcount的时候报错
+ ./hadoop fs -mkdir /input
+./hadoop fs -put myword.txt /input
+./hadoop jar /usr/local/hadoop/hadoop-examples-1.2.1.jar wordcount /input /output
+./hadoop fs -cat /output/part-r-00000
+
+hadoop fs -mkdir /tmp/input              在HDFS上新建文件夹
+hadoop fs -put input1.txt /tmp/input  把本地文件input1.txt传到HDFS的/tmp/input目录下
+hadoop fs -get  input1.txt /tmp/input/input1.txt  把HDFS文件拉到本地
+hadoop fs -ls /tmp/output                  列出HDFS的某目录
+hadoop fs -cat /tmp/ouput/output1.txt  查看HDFS上的文件
+hadoop fs -rmr /home/less/hadoop/tmp/output  删除HDFS上的目录
+
+启动HDFS服务
+在/data/hadoop/install/bin下有很多命令，
+* start-all.sh 启动所有的Hadoop守护，包括namenode, datanode，jobtracker，tasktrack，secondarynamenode。
+* stop-all.sh 停止所有的Hadoop。
+* start-mapred.sh 启动Map/Reduce守护，包括Jobtracker和Tasktrack。
+* stop-mapred.sh 停止Map/Reduce守护
+* start-dfs.sh 启动Hadoop DFS守护，Namenode和Datanode。
+* stop-dfs.sh 停止DFS守护
+=======hadoop程序在windows上访问hdfs的问题=============
+java.lang.IllegalArgumentException: Wrong FS: hdfs:/ expected file:/// 
+解决方案：
+hadoop需要把集群上的core-site.xml和hdfs-site.xml放到当前工程下。eclipse工作目录的bin文件夹下面
+因为是访问远程的HDFS 需要通过URＩ来获得FileSystem.
+val person = sqlContext.jsonFile("hdfs://xcsq:8089/cookbook/input/jsondata")
+
+ sixtyPlus.toJSON.saveAsTextFile("hdfs://xcsq:8089/cookbook/input/jsondata/sp")
+ val person = sqlContext.read.json("hdfs://xcsq:8089/cookbook/input/jsondata")
+#上传目录到dfs
+hdfs dfs -mkdir      -mkdir <hdfs路径>      创建空白文件夹
+
+-rm      -rm [-skipTrash] <路径>      删除文件/空白文件夹
+-rmr      -rmr [-skipTrash] <路径>      递归删除
+hdfs dfs -put person person
+hdfs dfs -ls /cookbook/input/jsondata/sp
+
+ val svPerson = Vectors.sparse(3,Array(0,1,2),Array(160.0,69.0,24.0))

@@ -1,0 +1,151 @@
+==========解压tar=============================
+ tar -zxf hadoop-2.6.4.tar.gz 
+==========解压gz=============================
+ gunzip filename.gz 
+
+==========Linux乱码解决方式===================
+1)vi  /etc/sysconfig/i18n 
+#LANG="zh_CN.UTF-8"(中文)
+SYSFONT="latarcyrheb-sun16"
+SUPPORTED="zh_CN.UTF-8:zh_CN:zh"
+
+LANG="en_US.UTF-8"
+SYSFONT="latarcyrheb-sun16"
+==========Linux查看端口被占用解决方式===================
+1) netstat -anp |grep 8088
+2)查看某一端口的占用情况lsof -i:端口号 lsof -i:8080
+3) 根据进程ID查询找占用端口程序 ps -ef|grep 3812(进程ID)
+查看端口
+         # netstat -nptl | grep mongod
+============linux下vi操作Found a swap file by the name========
+1)ls -a
+2)rm .Test.java.swp 
+==============关闭防火墙等服务==========
+# service iptables stop
+# chkconfig iptables off     //关闭开机启动防火墙
+==================如果Master UI不能访问=====================
+1)查看端口是否被占用
+2)关闭防火墙服务
+3)下载tomcat 启动查看是否服务被停止
+=================如何查看Linux是32位还是64位==================
+1)file /sbin/init 或者 file /bin/ls
+2)getconf LONG_BIT
+================增加防火墙======================================
+1)vi /etc/sysconfig/iptables  #编辑
+2)-A RH-Firewall-1-INPUT -m state --state NEW -m tcp -p tcp --dport 27017 -j ACCEPT  #允许27017端口通过防火墙
+3)/etc/init.d/iptables restart #重启防火墙使配置生效
+4)windows安装telnet客户端 命令telnet 192.168.0.17 8081 
+==============linux下找出占用空间最大的目录 ======
+du -h --max-depth=1 /path
+先在/path目录下找出最大的目录path1，然后再在path1下找出最大的目录，这样一级一级就可以找出占用空间最大的目录了
+du -h --max-depth=1 /path/path1
+===========查看进程==============
+ps aux | grep mongo | grep -v grep
+===========设置开机启动=============
+vim /etc/rc.local
+/opt/mongodb/bin/mongod --config /data/mongodb/conf/db0/mongodb.conf
+service mongodb start/stop  
+
+五、重启centos
+
+shutdown -r now
+
+========================Linux查看CPU和内存使用情况=============
+1)top
+内容解释：
+    PID：进程的ID
+　　USER：进程所有者
+　　PR：进程的优先级别，越小越优先被执行
+　　NInice：值
+　　VIRT：进程占用的虚拟内存
+　　RES：进程占用的物理内存
+　　SHR：进程使用的共享内存
+　　S：进程的状态。S表示休眠，R表示正在运行，Z表示僵死状态，N表示该进程优先值为负数
+　　%CPU：进程占用CPU的使用率
+　　%MEM：进程使用的物理内存和总内存的百分比
+　　TIME+：该进程启动后占用的总的CPU时间，即占用CPU使用时间的累加值。
+　　COMMAND：进程启动命令名称
+
+　第一行（top）：
+
+　　　　“00:11:04”为系统当前时刻；
+
+　　　　“3:35”为系统启动后到现在的运作时间；
+
+　　　　“2 users”为当前登录到系统的用户，更确切的说是登录到用户的终端数 -- 同一个用户同一时间对系统多个终端的连接将被视为多个用户连接到系统，这里的用户数也将表现为终端的数目；
+
+　　　　“load average”为当前系统负载的平均值，后面的三个值分别为1分钟前、5分钟前、15分钟前进程的平均数，一般的可以认为这个数值超过 CPU 数目时，CPU 将比较吃力的负载当前系统所包含的进程；
+
+　　第二行（Tasks）：
+
+　　　　“59 total”为当前系统进程总数；
+
+　　　　“1 running”为当前运行中的进程数；
+
+　　　　“58 sleeping”为当前处于等待状态中的进程数；
+
+　　　　“0 stoped”为被停止的系统进程数；
+
+　　　　“0 zombie”为被复原的进程数；
+
+　　第三行（Cpus）：
+
+　　　　分别表示了 CPU 当前的使用率；
+
+　　第四行（Mem）：
+
+　　　　分别表示了内存总量、当前使用量、空闲内存量、以及缓冲使用中的内存量；
+
+　　第五行（Swap）：
+
+　　　　表示类别同第四行（Mem），但此处反映着交换分区（Swap）的使用情况。通常，交换分区（Swap）被频繁使用的情况，将被视作物理内存不足而造成的。
+
+pmap
+
+可以根据进程查看进程相关信息占用的内存情况，(进程号可以通过ps查看)如下所示：
+　　$ pmap -d 5647
+
+　  $ ps -e -o 'pid,comm,args,pcpu,rsz,vsz,stime,user,uid'  其中rsz是是实际内存
+　　$ ps -e -o 'pid,comm,args,pcpu,rsz,vsz,stime,user,uid' | grep oracle |  sort -nrk
+
+　　其中rsz为实际内存，上例实现按内存排序，由大到小
+
+在Linux下查看内存我们一般用free命令：
+
+下面是对这些数值的解释：
+total:总计物理内存的大小。
+used:已使用多大。
+free:可用有多少。
+Shared:多个进程共享的内存总额。
+Buffers/cached:磁盘缓存的大小。
+第三行(-/+ buffers/cached):
+used:已使用多大。
+free:可用有多少。
+第四行就不多解释了。
+
+================Linux开通telnet方式============================
+1)检查linux版本 cat /etc/issue  
+CentOS Linux release 6.0 (Final)
+Kernel \r on an \m
+2)检查是否已经安装telnet
+rpm -qa | grep telnet
+3)安装telnet及telnet-server,注意，需要root权限来安装 下载telnet-server
+ rpm -ivh telnet-server-0.17-47.el6_3.1.i686.rpm
+
+
+===========安装telnet遇到error: Failed dependencies:==============
+           xinetd is needed by telnet-server-0.17-35.i386
+解决方法：
+1、先安装xinetd包
+rpm -ivh xinetd-2.3.14-10.el5.x86_64.rpm
+此rpm包在光盘介质中可以找到。
+
+2、再安装telnet包
+rpm -ivh telnet-server-0.17-35.i386.rpm
+
+3、启动xinetd服务
+service xinetd start
+总之，需要先安装xinetd包即可。
+
+4. 现在可以安装我们需要的rpm包了
+rpm -ivh telnet-server-0.17-35.i386.rpm

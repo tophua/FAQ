@@ -1,0 +1,549 @@
+﻿=============MongoDB主从集群=======================
+一、环境
+$ cat /etc/redhat-release 
+CentOS Linux release 7.0.1406 (Core) 
+$ uname -a
+Linux zhaopin-2-201 3.10.0-123.el7.x86_64 #1 SMP Mon Jun 30 12:09:22 UTC 2014 x86_64 x86_64 x86_64 GNU/Linux
+$ mongo --version
+MongoDB shell version: 3.0.6
+
+二、准备
+1.创建目录
+mkdir -p /data/mongodb/{data/db0,backup/db0,log/db0,conf/db0}
+2.编写master配置文件
+
+vim /data/mongodb/conf/db0/mongodb.conf
+
+# base
+port = 27017
+maxConns = 800 
+filePermissions = 0700
+fork = true 
+noauth = true
+directoryperdb = true
+dbpath = /data/mongodb/data/db0
+pidfilepath = /data/mongodb/data/db0/mongodb.pid
+journal = true
+
+# security
+nohttpinterface = true
+rest = false
+
+# log 
+logpath = /data/mongodb/log/db0/monodb.log
+logRotate = rename
+logappend = true
+slowms = 50
+master = true
+
+2.编写slave配置文件
+vim /data/mongodb/conf/db0/mongodb.conf
+# base
+port = 27017
+maxConns = 800
+filePermissions = 0700
+fork = true
+noauth = true
+directoryperdb = true
+dbpath = /data/mongodb/data/db0
+pidfilepath = /data/mongodb/data/db0/mongodb.pid
+journal = true
+
+# security
+nohttpinterface = true
+rest = false
+
+# log
+logpath = /data/mongodb/log/db0/mongodb.log
+logRotate = rename
+logappend = true
+slowms = 50
+
+slave = true
+source = 172.30.2.201:27017
+
+三、启动master
+#如果32位操作系统最后命令加&
+#如果64位mongodb.conf加fork = true
+/opt/mongodb/bin/mongod --config /data/mongodb/conf/db0/mongodb.conf &
+
+mongo
+db.isMaster();
+bye
+三、启动slave
+/opt/mongodb/bin/mongod --config /data/mongodb/conf/db0/mongodb.conf &
+
+查看是否启动:
+ ps aux|grep mongo|grep -v grep
+查看端口
+netstat -nptl | grep mongod
+web界面
+http://localhost:28017
+
+3. 设置开机启动
+vim /etc/rc.local
+/opt/mongodb/bin/mongod --config /data/mongodb/conf/db0/mongodb.conf
+
+四、验证
+1.数据同步
+
+1) master：
+$ mongo
+MongoDB shell version: 3.0.6
+connecting to: test
+> use aaa;
+switched to db aaa
+> db.createCollection("test");
+{ "ok" : 1 }
+> show collections;
+system.indexes
+system.profile
+test
+>
+2) slave：
+$ mongo
+MongoDB shell version: 3.0.6
+connecting to: test
+> rs.slaveOk();
+> show dbs;
+aaa    0.078GB
+local  0.078GB
+> use aaa;
+switched to db aaa
+> show collections;
+system.indexes
+test
+>
+2.读写验证
+由上可知，master是可读写的
+
+在从库上写测试：
+$ mongo
+MongoDB shell version: 3.0.6
+connecting to: test
+> use aaa;
+switched to db aaa
+> db.createCollection("test2");
+{ "note" : "from execCommand", "ok" : 0, "errmsg" : "not master" }
+> show collections;
+2015-09-23T15:57:49.240+0800 E QUERY    Error: listCollections failed: { "note" : "from execCommand", "ok" : 0, "errmsg" : "not master" }
+    at Error (<anonymous>)
+    at DB._getCollectionInfosCommand (src/mongo/shell/db.js:646:15)
+    at DB.getCollectionInfos (src/mongo/shell/db.js:658:20)
+    at DB.getCollectionNames (src/mongo/shell/db.js:669:17)
+    at shellHelper.show (src/mongo/shell/utils.js:625:12)
+    at shellHelper (src/mongo/shell/utils.js:524:36)
+    at (shellhelp2):1:1 at src/mongo/shell/db.js:646
+> rs.slaveOk();
+> show collections;
+system.indexes
+test
+>
+证明从库是不能写，默认也是不可读的，需要执行rs.slaveOk();或者db.getMongo().setSlaveOk();并且只对当前session有效，所以每次连接从库都需要执行。
+
+五、故障测试及解决方案
+1.master宕机
+
+1) 将master停机
+$ mongo
+MongoDB shell version: 3.0.6
+connecting to: test
+> use admin;
+switched to db admin
+> db.shutdownServer();
+2015-09-23T16:02:16.983+0800 I NETWORK  DBClientCursor::init call() failed
+server should be down...
+2015-09-23T16:02:16.986+0800 I NETWORK  trying reconnect to 127.0.0.1:27017 (127.0.0.1) failed
+2015-09-23T16:02:16.987+0800 I NETWORK  reconnect 127.0.0.1:27017 (127.0.0.1) ok
+2015-09-23T16:02:16.992+0800 I NETWORK  Socket recv() errno:104 Connection reset by peer 127.0.0.1:27017
+2015-09-23T16:02:16.992+0800 I NETWORK  SocketException: remote: 127.0.0.1:27017 error: 9001 socket exception [RECV_ERROR] server [127.0.0.1:27017]
+2015-09-23T16:02:16.992+0800 I NETWORK  DBClientCursor::init call() failed
+>
+bye
+$ ps aux | grep mongo | grep -v grep
+
+2) 查看slave状态
+$ mongo
+MongoDB shell version: 3.0.6
+connecting to: test
+> rs.slaveOk();
+> show dbs;
+aaa    0.078GB
+local  0.078GB
+> use aaa;
+switched to db aaa
+> show collections;
+system.indexes
+test
+> db.createCollection("test2");
+{ "note" : "from execCommand", "ok" : 0, "errmsg" : "not master" }
+可见slave还是只读，不能写
+
+3) 解决方法
+将slave停机，变为master后启动
+> use admin;
+switched to db admin
+> db.shutdownServer();
+2015-09-23T16:05:28.355+0800 I NETWORK  DBClientCursor::init call() failed
+server should be down...
+2015-09-23T16:05:28.357+0800 I NETWORK  trying reconnect to 127.0.0.1:27017 (127.0.0.1) failed
+2015-09-23T16:05:28.357+0800 W NETWORK  Failed to connect to 127.0.0.1:27017, reason: errno:111 Connection refused
+2015-09-23T16:05:28.358+0800 I NETWORK  reconnect 127.0.0.1:27017 (127.0.0.1) failed failed couldn't connect to server 127.0.0.1:27017 (127.0.0.1), connection attempt  failed
+>
+bye
+$ ps aux | grep mongo | grep -v grep
+$ sudo vim /data/mongodb/conf/db0/mongodb.conf
+master = true
+#slave = true
+#source = 172.30.2.201:27017
+$ sudo /opt/mongodb/bin/mongod --config /data/mongodb/conf/db0/mongodb.conf
+about to fork child process, waiting until server is ready for connections.
+forked process: 36988
+child process started successfully, parent exiting
+$ mongo
+MongoDB shell version: 3.0.6
+connecting to: test
+> show dbs;
+aaa     0.078GB
+local  50.054GB
+> use aaa;
+switched to db aaa
+> db.createCollection("test2");
+{ "ok" : 1 }
+> show collections;
+system.indexes
+system.profile
+test
+test2
+> db.isMaster();
+{
+        "ismaster" : true,
+        "maxBsonObjectSize" : 16777216,
+        "maxMessageSizeBytes" : 48000000,
+        "maxWriteBatchSize" : 1000,
+        "localTime" : ISODate("2015-09-23T08:07:41.812Z"),
+        "maxWireVersion" : 3,
+        "minWireVersion" : 0,
+        "ok" : 1
+}
+>
+bye
+这样slave就变为新的master了
+
+2.slave宕机
+
+1) 制作新的slave
+
+$ sudo rm -fr /data/mongodb/data/db0/*
+$ sudo vim /data/mongodb/conf/db0/mongodb.conf
+#master = true
+slave = true
+source = 172.30.2.202:27017
+$ sudo /opt/mongodb/bin/mongod --config /data/mongodb/conf/db0/mongodb.conf
+about to fork child process, waiting until server is ready for connections.
+forked process: 48779
+child process started successfully, parent exiting
+$ mongo
+MongoDB shell version: 3.0.6
+connecting to: test
+> db.isMaster();
+{
+        "ismaster" : false,
+        "maxBsonObjectSize" : 16777216,
+        "maxMessageSizeBytes" : 48000000,
+        "maxWriteBatchSize" : 1000,
+        "localTime" : ISODate("2015-09-23T08:14:51.283Z"),
+        "maxWireVersion" : 3,
+        "minWireVersion" : 0,
+        "ok" : 1
+}
+2) 将新的slave停机
+> use admin;
+switched to db admin
+> db.shutdownServer();
+2015-09-23T16:15:31.329+0800 I NETWORK  DBClientCursor::init call() failed
+server should be down...
+2015-09-23T16:15:31.331+0800 I NETWORK  trying reconnect to 127.0.0.1:27017 (127.0.0.1) failed
+2015-09-23T16:15:31.332+0800 I NETWORK  reconnect 127.0.0.1:27017 (127.0.0.1) ok
+2015-09-23T16:15:31.333+0800 I NETWORK  Socket recv() errno:104 Connection reset by peer 127.0.0.1:27017
+2015-09-23T16:15:31.333+0800 I NETWORK  SocketException: remote: 127.0.0.1:27017 error: 9001 socket exception [RECV_ERROR] server [127.0.0.1:27017]
+2015-09-23T16:15:31.333+0800 I NETWORK  DBClientCursor::init call() failed
+>
+bye
+$ ps aux | grep mongo | grep -v grep
+3) 查看新master状况
+$ mongo
+MongoDB shell version: 3.0.6
+connecting to: test
+> show dbs;
+aaa     0.078GB
+local  50.054GB
+> use aaa;
+switched to db aaa
+> db.createCollection("test3");
+{ "ok" : 1 }
+> show collections;
+system.indexes
+system.profile
+test
+test2
+test3
+>
+bye
+4) 结论
+
+可见master是可以正常读写的，只需要再制作从库即可
+参考https://my.oschina.net/aven92/blog/510183
+
+
+==========通过配置文件方式启动（推荐）================
+ 1.在服务器上新建mongodb.conf配置文件(建议用命令生成，放在mongodb同一个目录下)
+  内容为：
+  port=10000 #端口号
+  fork=true #以守护进程的方式运行，创建服务器进程
+  #master=true #单主从配置时设为主服务器
+  #salve=true ##单主从配置时设为从服务器
+  logpath=/data/mongodb/log/mongodb.log #日志输出文件路径
+  logappend=true #日志输出方式
+  dbpath=/data/mongodb/data/db #数据库路径
+  replSet=blort #设置富本集的名字
+  shardsvr=true #设置是否分片
+  2.运行./mongod –config ~/.mongodb.conf 命令(--config可以直接写成-f)。
+  输出:
+  all output going to: /data/mongodb/log/mongodb.log
+  forked process: 5315
+  ==========测试部署完成===========
+  在浏览器中输入http://localhost:10000/,会出现表面mongdb已经启动好了
+  It looks like you are trying to access MongoDB over HTTP on the native driver port.
+
+mongodb 启动参数
+    --quiet                       # 安静输出 
+    --port arg                    # 指定服务端口号，默认端口27017 
+    --bind_ip arg                 # 绑定服务IP，若绑定127.0.0.1，则只能本机访问，不指定默认本地所有IP 
+    --logpath arg                 # 指定MongoDB日志文件，注意是指定文件不是目录 
+    --logappend                   # 使用追加的方式写日志 
+    --pidfilepath arg             # PID File 的完整路径，如果没有设置，则没有PID文件 
+    --keyFile arg                 # 集群的私钥的完整路径，只对于Replica Set 架构有效 
+    --unixSocketPrefix arg        # UNIX域套接字替代目录,(默认为 /tmp) 
+    --fork                        # 以守护进程的方式运行MongoDB，创建服务器进程 
+    --auth                        # 启用验证 
+    --cpu                         # 定期显示CPU的CPU利用率和iowait 
+    --dbpath arg                  # 指定数据库路径 
+    --diaglog arg                 # diaglog选项 0=off 1=W 2=R 3=both 7=W+some reads 
+    --directoryperdb              # 设置每个数据库将被保存在一个单独的目录 
+    --journal                     # 启用日志选项，MongoDB的数据操作将会写入到journal文件夹的文件里 
+    --journalOptions arg          # 启用日志诊断选项 
+    --ipv6                        # 启用IPv6选项 
+    --jsonp                       # 允许JSONP形式通过HTTP访问（有安全影响） 
+    --maxConns arg                # 最大同时连接数 默认2000 
+    --noauth                      # 不启用验证 
+    --nohttpinterface             # 关闭http接口，默认关闭27018端口访问 
+    --noprealloc                  # 禁用数据文件预分配(往往影响性能) 
+    --noscripting                 # 禁用脚本引擎 
+    --notablescan                 # 不允许表扫描 
+    --nounixsocket                # 禁用Unix套接字监听 
+    --nssize arg (=16)            # 设置信数据库.ns文件大小(MB) 
+    --objcheck                    # 在收到客户数据,检查的有效性， 
+    --profile arg                 # 档案参数 0=off 1=slow, 2=all 
+    --quota                       # 限制每个数据库的文件数，设置默认为8 
+    --quotaFiles arg              #  number of files allower per db, requires --quota 
+    --rest                        # 开启简单的rest API 
+    --repair                      # 修复所有数据库run repair on all dbs 
+    --repairpath arg              # 修复库生成的文件的目录,默认为目录名称dbpath 
+    --slowms arg (=100)       	  # value of slow for profile and console log 
+    --smallfiles                  # 使用较小的默认文件 
+    --syncdelay arg (=60)         # 数据写入磁盘的时间秒数(0=never,不推荐) 
+    --sysinfo                     # 打印一些诊断系统信息 
+    --upgrade                     # 如果需要升级数据库
+    
+    * Replicaton 参数
+
+   --------------------------------------------------------------------------------
+
+    --fastsync                    # 从一个dbpath里启用从库复制服务，该dbpath的数据库是主库的快照，可用于快速启用同步 
+    --autoresync                  # 如果从库与主库同步数据差得多，自动重新同步， 
+    --oplogSize arg               # 设置oplog的大小(MB) 
+    
+    * 主/从参数
+
+   --------------------------------------------------------------------------------
+
+    --master                      # 主库模式 
+    --slave                       # 从库模式 
+    --source arg                  # 从库 端口号 
+    --only arg                    # 指定单一的数据库复制 
+    --slavedelay arg              # 设置从库同步主库的延迟时间 
+     
+    * Replica set(副本集)选项：
+
+   --------------------------------------------------------------------------------
+
+    --replSet arg                 # 设置副本集名称 
+    
+    * Sharding(分片)选项
+
+   --------------------------------------------------------------------------------
+
+    --configsvr                   # 声明这是一个集群的config服务,默认端口27019，默认目录/data/configdb 
+    --shardsvr                    # 声明这是一个集群的分片,默认端口27018 
+    --noMoveParanoia        	  # 关闭偏执为moveChunk数据保存? 
+
+ 三 查询进程和关闭数据库
+  1. 运行 ps -ef|grep mongo 命令查询服务器进程
+  2. 运行 kill -2 5315命令kill掉5315的进程
+  
+ 四 进入数据库并简单操作数据库
+  1.运行 ./mongo --port 8089 进入刚刚启动的端口号为8089的数据库
+  2.使用use test可以切换集合（相当于数据库表）,这里切换到了test集合
+  3.使用db.test.insert("a","b");向集合插入数据
+  4.使用db.test.find();查询集合里的数据
+  5.更多shell命令请查阅相关文档
+
+ 五 注意事项
+  1. 防火墙设置（测试时可直接关闭linux关闭防火墙：立即但不永久生效：service iptables stop重启永久生效：chkconfig iptables off）
+
+
+第二节 副本集
+ 简单的说，副本集就是有自动故障恢复功能的主从集群，副本集没有固定的"主节点"，集群会通过投票选举一个"主节点"。
+ 当主节点岩机时，会变更到其他节点。副本集布在不同机器上时，至少要启动三个（单数）数据库服务器进程，否则启动时投票不成功会一直初始化不了
+  一 以配置文件方式启动三台机器上的数据库服务器
+   1. 三台服务器的配置文件：
+   port=10000 #端口号
+   fork=true #以守护进程的方式运行，创建服务器进程
+   logpath=/data/mongodb/log/mongodb.log #日志输出文件路径
+   logappend=true #日志输出方式
+   dbpath=/data/mongodb/data/db #数据库路径
+   replSet=blort #设置富本集的名字为blort,replSet是让服务器知道在这个"blort"副本集中还有别的机器
+   # replSet=blort /10.10.112.181:10000, 10.10.112.191:10000#设置富本集的名字,这种方式也可以，意思就是"blort"副本集其他机器，位置在10.10.112.181:10000和10.10.112.191:10000，但不推荐
+   2. 通命令启动三台数据库服务器
+   /usr/local/mongodb/bin/mongod -f /data/mongodb/blort/config.conf
+   /usr/local/mongodb/bin/mongod -f /data/mongodb/blort2/config.conf
+   /usr/local/mongodb/bin/mongod -f /data/mongodb/blort3/config.conf
+
+
+二 初始化副本集（只能初始化一次）
+  /usr/local/mongodb/bin/mongo --port 30001
+  use admin
+  方法一：
+  db.runCommand({"replSetInitiate":{"_id":"blort","members":[{"_id":0,"host":"10.10.113.122:30001"},{"_id":1,"host":"10.10.113.122:30002"},{"_id":2,"host":"10.10.113.122:30003","arbiterOnly":true}]}})
+  
+  方法二：
+  config={_id:'blort',members:[{"_id":0,host:'10.10.113.122:30001},{"_id":1,host:'10.10.113.122:30002'},{"_id":2,"host":"10.10.113.122:30003","arbiterOnly":true}]};
+  rs.initiate(config);
+具体参考
+https://my.oschina.net/zhuzhu0129/blog/53290
+
+==========32位linux(centos)下mongoDB的安装=============
+1)下载mongodb-linux-i686-v3.0.lastest.tgz  
+2)解压 tar -zxf mongodb-linux-i686-v3.0.lastest.tgz
+3)删除版本 mv  mongodb-linux-i686-3.0.14-1-g8abafec mongodb3.0
+4)把mongodb3.0复制到opt目录下, cp -r mongodb3.0 /opt/
+5)创建数据库存放目录和日志存放文件
+  mkdir -p /opt/mongodb3.0/data #创建MongoDB数据库存放路径
+  mkdir -p /opt/mongodb3.0/dblogs #创建MongoDB数据库日志存放路径
+6)启动mongod
+/opt/mongodb3.0/bin/mongod  --fork --dbpath=/opt/mongodb3.0/data --logpath=/opt/mongodb3.0/dblogs/mongodb.log --logappend  --journa
+//--fork 是为了让程序后台执行  
+
+7)设置开机自启动
+echo /opt/mongodb3.0/bin/mongod  --fork --dbpath=/opt/mongodb3.0/data --logpath=/opt/mongodb3.0/dblogs/mongodb.log --logappend  --journa
+ >>/etc/rc.local  
+
+8)查看mongo运行情况
+   netstat -tlnup |grep mongod
+
+9)关闭mongod进程:pkill mongod
+
+
+===================MongoDB后台管理 Shell=====================================
+1)进入MongoDB后台管理，你需要先打开mongodb装目录的下的bin目录，然后执行mongo命令文件
+MongoDB Shell是MongoDB自带的交互式Javascript shell,用来对MongoDB进行操作和管理的交互式环境。
+当你进入mongoDB后台后，它默认会链接到 test 文档（数据库）：
+cd /opt/mongodb3.0/bin
+./mongo
+2)由于它是一个JavaScript shell，您可以运行一些简单的算术运算:
+> 2+2
+4
+> 3+6
+9
+2)现在让我们插入一些简单的数据,并对插入的数据进行检索：
+> db.runoob.insert({x:10})
+WriteResult({ "nInserted" : 1 })
+> db.runoob.find()
+{ "_id" : ObjectId("5604ff74a274a611b0c990aa"), "x" : 10 }
+第一个命令将数字 10 插入到 runoob 集合的 x 字段中
+
+====================MongoDb web 用户界面
+1)MongoDB 提供了简单的 HTTP 用户界面。 如果你想启用该功能，需要在启动的时候指定参数 --rest 
+ ./mongod --dbpath=/data/db --rest
+
+
+
+=================32-bit servers don't have journaling enabled by default. Please use --journal if you want durability===============
+1)这是告诉你32bit版本的mongodb默认不开journal记录，如果你需要的话，需要在运行时加上-journal开关
+=================启动mongodb报错child process failed, exited with error number100===============
+1)启动参数可能出现错误,查看各个参数是否有问题
+2)这是因为非正常关闭mongodb引起的错误，解决办法如下：
+删掉以下文件即可：mongodb/mongod.lock 问题解决！
+================增加防火墙======================================
+1)vi /etc/sysconfig/iptables  #编辑
+
+2)-A RH-Firewall-1-INPUT -m state --state NEW -m tcp -p tcp --dport 27017 -j ACCEPT  #允许27017端口通过防火墙
+
+3)/etc/init.d/iptables restart #重启防火墙使配置生效
+=================注意事项==========
+1)如果中途有关闭数据库进程切记不要用kiil -9这样会造成锁死现象 用pkill命令比较好
+2)如果无法启动建议删除data下面的mongod.lock,仅用于测试环境记得删除之前备份
+==========启动命令常用参数说明=====================
+
+--dbpath         指定数据库文件存放的目录
+
+--port          指定mongod服务使用的端口默认27017
+
+--fork          设置mongo服务为后台运行
+
+--logpath       指定log文件的目录和文件名
+
+--logappend     设置每次log添加在文件最后
+
+--journal	启用日志
+
+--pidfilepath	指定进程文件的路径，如果不指定，系统将不产生进程
+
+--maxConns	最大并发连接数
+
+--noprealloc	关闭数据文件的预分配功能
+
+--rest		关闭rest api功能
+
+--nohttpinterface关闭web管理功能
+
+--auth		指定mongo使用身份验证机制
+
+--bind_ip	绑定ip
+
+
+
+================windows下MongoDB的安装及配置==================
+1)创建数据库文件的存放位置，
+	比如d:/mongodb/data/db。启动mongodb服务之前需要必须创建数据库文件的存放文件夹，否则命令不会自动创建，而且不能启动成功
+2)打开cmd（windows键+r输入cmd）命令行，进入D:\mongodb\bin目录（如图先输入d:进入d盘然后输入cd d:\mongodb\bin),
+输入如下的命令启动mongodb服务：
+D:/mongodb/bin>mongod --dbpath D:\mongodb\data\db
+3)mongodb默认连接端口27017，如果出现如图的情况，
+可以打开http://localhost:27017查看（笔者这里是chrome），发现如图则表示连接成功，如果不成功，可以查看端口是否被占用。
+4)其实可以将MongoDB设置成Windows服务，这个操作就是为了方便，每次开机MongoDB就自动启动了。
+如图在d:\mongodb\data下新建文件夹log（存放日志文件）并且新建文件mongodb.log
+在d:\mongodb新建文件mongo.config
+5)用记事本打开mongo.config输入：
+dbpath=D:\mongodb\data\db
+logpath=D:\mongodb\data\log\mongo.log  
+6)用管理员身份打开cmd命令行，进入D:\mongodb\bin目录，输入如下的命令：
+D:\mongodb\bin>mongod --config D:\mongodb\mongo.config --install --serviceName "MongoDB3.0"
+D:\MongoDB3.0\Server\bin>mongod --install --serviceName MongoDB --serviceDisplayName MongoDB --logpath D:\MongoDB3.0\log\mongodb.Log --dbpath D:\MongoDB3.0\data
+\ --directoryperdb
+有人提醒改为如下：
+mongod --config D:\mongodb\mongo.config 
+如图结果存放在日志文件中，查看日志发现已经成功。如果失败有可能没有使用管理员身份，遭到拒绝访问。
+7)打开cmd输入services.msc查看服务可以看到MongoDB服务，点击可以启动。
+

@@ -1,0 +1,48 @@
+==============连接JDBC方式=================
+======创建数据库=====
+create database sparkdb;
+CREATE USER sparkdb IDENTIFIED BY 'sparkdb'; //创建用户
+grant insert,delete,update,select,drop,create on sparkdb.* to sparkdb //赋权
+//创建表
+CREATE TABLE person (
+person_id int(11) NOT NULL AUTO_INCREMENT,
+first_name varchar(30) DEFAULT NULL,
+last_name varchar(30) DEFAULT NULL,
+gender char(1) DEFAULT NULL,
+age tinyint(4) DEFAULT NULL,
+PRIMARY KEY ('person_id')
+)
+//插入数据
+Insert into person(first_name,last_name,gender,age) values('Barack','Obama','M',53);
+Insert into person(first_name,last_name,gender,age) values('Bill','Clinton','M',71);
+Insert into person(first_name,last_name,gender,age) values('Hillary','Clinton','F',68);
+Insert into person(first_name,last_name,gender,age) values('Bill','Gates','M',69);
+Insert into person(first_name,last_name,gender,age) values('Michelle','Obama','F',51);
+============启动加载jar包===================
+    --driver-class-path lib/mysql-connector-java-5.1.35.jar 
+==============http://www.cnblogs.com/key1309/p/5350179.html解决方式
+# --driver-class-path driver端路径,--jars 添加Worker端jar
+1)spark-shell --master spark://mzhy:7077 --driver-class-path /root/jdbc/mysql5.134.jar --jars /root/jdbc/mysql5.134.jar
+windows 启动方式,注意--jars连接方式不一样,
+spark-shell.cmd --master spark://dept3:8088 --driver-class-path d:/jdbc/mysql5.134.jar --jars file://d:/jdbc/mysql5.134.jar
+
+2)val url="jdbc:mysql://192.168.10.198:3306/sparkdb"
+3)val prop = new java.util.Properties
+4)prop.setProperty("user","sparkdb")
+6)prop.setProperty("password","sparkdb")
+5)val people = sqlContext.read.jdbc(url,"person",prop)
+6)people.show
+7)val males = sqlContext.read.jdbc(url,"person",Array("gender='M'"),prop)
+8)males.show
+9)val first_names = people.select("first_name")
+10)first_names.show
+11)val below60 = people.filter(people("age") < 60)
+12)below60.show
+13)val grouped = people.groupBy("gender")
+14)val gender_count = grouped.count
+15) gender_count.show
+16)val avg_age = grouped.avg("age")
+17)avg_age.show
+18) gender_count.write.jdbc(url,"gender_count",prop)
+19)people.write.parquet("people.parquet")
+20) people.write.json("people.json")
