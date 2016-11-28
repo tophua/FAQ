@@ -146,7 +146,7 @@ java.lang.IllegalArgumentException: Wrong FS: hdfs:/ expected file:///
 hadoop需要把集群上的core-site.xml和hdfs-site.xml放到当前工程下。eclipse工作目录的bin文件夹下面
 因为是访问远程的HDFS 需要通过URＩ来获得FileSystem.
 val person = sqlContext.jsonFile("hdfs://xcsq:8089/cookbook/input/jsondata")
-
+/machineLearning/Chapter01
  sixtyPlus.toJSON.saveAsTextFile("hdfs://xcsq:8089/cookbook/input/jsondata/sp")
  val person = sqlContext.read.json("hdfs://xcsq:8089/cookbook/input/jsondata")
 #上传目录到dfs

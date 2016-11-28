@@ -540,8 +540,7 @@ dbpath=D:\mongodb\data\db
 logpath=D:\mongodb\data\log\mongo.log  
 6)用管理员身份打开cmd命令行，进入D:\mongodb\bin目录，输入如下的命令：
 D:\mongodb\bin>mongod --config D:\mongodb\mongo.config --install --serviceName "MongoDB3.0"
-D:\MongoDB3.0\Server\bin>mongod --install --serviceName MongoDB --serviceDisplayName MongoDB --logpath D:\MongoDB3.0\log\mongodb.Log --dbpath D:\MongoDB3.0\data
-\ --directoryperdb
+D:\MongoDB3.0\Server\bin>mongod --install --serviceName MongoDB --serviceDisplayName MongoDB --logpath D:\MongoDB3.0\log\mongodb.Log --dbpath D:\MongoDB3.0\data\ --directoryperdb
 有人提醒改为如下：
 mongod --config D:\mongodb\mongo.config 
 如图结果存放在日志文件中，查看日志发现已经成功。如果失败有可能没有使用管理员身份，遭到拒绝访问。
