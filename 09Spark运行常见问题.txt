@@ -11,6 +11,63 @@ C:/WINDOWS/system32/drivers/etc/hosts 增加域名和IP对应
 6)查看监听器是否启动及防火墙
 7)linux 登录用户不能与mast用户相同
 
+===========多Master如何配置=============
+在SparkContext指向一个Master列表就可以了，如spark://host1:port1,host2:port2,host3:port3，应用程序会轮询列表
+=========No Space Left on the device（Shuffle临时文件过多）==========
+中间结果过多导致/tmp目录写满而出现如下错误No Space Left on the device
+解决办法
+第一种：修改配置文件spark-env.sh,把临时文件引入到一个自定义的目录中去即可
+export SPARK_LOCAL_DIRS=/home/utoken/datadir/spark/tmp
+第二种：偷懒方式，针对tmp目录不启用tmpfs,直接修改/etc/fstab
+
+==========java.lang.OutOfMemory, unable to create new native thread=======
+上面这段错误提示的本质是Linux操作系统无法创建更多进程，导致出错，并不是系统的内存不足。
+因此要解决这个问题需要修改Linux允许创建更多的进程，就需要修改Linux最大进程数。
+1)ulimit -a
+临时修改允许打开的最大进程数
+2)ulimit -u 65535
+临时修改允许打开的文件句柄
+3)ulimit -n 65535
+永久修改Linux最大进程数量
+4)vim /etc/security/limits.d/90-nproc.conf
+*          soft    nproc     60000
+
+root       soft    nproc     unlimited
+5)vim /etc/security/limits.conf
+bdata  soft    nofile  65536
+bdata  hard    nofile  65536
+
+===========Worker节点中的work目录占用许多磁盘空间=========
+目录地址：/home/utoken/software/spark-1.3.0-bin-hadoop2.4/work
+
+这些是Driver上传到worker的文件，需要定时做手工清理，否则会占用许多磁盘空间 
+
+===========spark-shell提交Spark Application如何解决依赖库==========
+spark-shell的话，利用--driver-class-path选项来指定所依赖的jar文件，
+注意的是--driver-class-path后如果需要跟着多个jar文件的话，jar文件之间使用冒号(:)来分割
+==========spark-shell 找不到hadoop so问题解决========================
+[main] WARN  org.apache.hadoop.util.NativeCodeLoader  - Unable to load native-hadoop library for your platform... 
+using builtin-java classes where applicable
+在Spark的conf目录下，修改spark-env.sh文件，加入LD_LIBRARY_PATH环境变量，值为HADOOP的native库路径即可.
+==========长时间等待无反应，并且看到服务器上面的web界面有内存和核心数，但是没有分配============
+ WARN TaskSchedulerImpl: Initial job has not accepted any resources; check your cluster UI to ensure that workers are registered and have sufficient resources
+ 出现上面的问题主要原因是因为我们通过参数spark.executor.memory设置的内存过大，已经超过了实际机器拥有的内存，故无法执行，
+ 需要等待机器拥有足够的内存后，才能执行任务，可以减少任务执行内存，设置小一些即可
+
+ =========内存不足或数据倾斜导致Executor Lost（spark-submit提交）==============================
+ TaskSetManager: Lost task 1.0 in stage 6.0 (TID 100, 192.168.10.37): java.lang.OutOfMemoryError: Java heap space
+ 解决办法：
+
+     由于我们在执行Spark任务是，读取所需要的原数据，数据量太大，导致在Worker上面分配的任务执行数据时所需要的内存不够，直接导致内存溢出了，所以我们有必要增加Worker上面的内存来满足程序运行需要。
+
+在Spark Streaming或者其他spark任务中，会遇到在Spark中常见的问题，典型如Executor Lost 相关的问题(shuffle fetch 失败，Task失败重试等)。这就意味着发生了内存不足或者数据倾斜的问题。这个目前需要考虑如下几个点以获得解决方案：
+
+A、相同资源下，增加partition数可以减少内存问题。 原因如下：通过增加partition数，每个task要处理的数据少了，同一时间内，所有正在运行的task要处理的数量少了很多，所有Executor占用的内存也变小了。这可以缓解数据倾斜以及内存不足的压力。
+
+B、关注shuffle read 阶段的并行数。例如reduce,group 之类的函数，其实他们都有第二个参数，并行度(partition数)，只是大家一般都不设置。不过出了问题再设置一下，也不错。
+
+C、给一个Executor 核数设置的太多，也就意味着同一时刻，在该Executor 的内存压力会更大，GC也会更频繁。我一般会控制在3个左右。然后通过提高Executor数量来保持资源的总量不变。
+
 ===========如何查看Windows下端口占用情况=============
 
 1)在开始-运行，输入CMD打开命令行界面，输入命令
