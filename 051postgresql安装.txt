@@ -1,0 +1,6 @@
+====PostgreSQL 连接问题 FATAL: no pg_hba.conf entry for host=======
+1)要解决这个问题，只需要在PostgreSQL数据库的安装目录下找到/data/pg_hba.conf,找到“# IPv4 local connections:”
+在其下加上请求连接的机器IP
+host all all 127.0.0.1/32 md5
+32是子网掩码的网段；md5是密码验证方法，可以改为trust
+

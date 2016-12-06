@@ -1,0 +1,7 @@
+H2数据库常见问题
+1)windows自动启动服务
+执行/D:\H2\service\1_install_service.bat命令
+2)创建用户
+CREATE USER testUser PASSWORD 'testPass' admin
+删除用户
+DROP USER testUser 

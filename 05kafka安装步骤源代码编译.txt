@@ -1,0 +1,12 @@
+Windows平台搭建Kafka源代码开发环境(Eclipse版本)
+一、Gradle安装配置
+https://www.gradle.org/downloads/ 下载最新的Gradle版本
+创建环境变量GRADLE_HOME指向解压的目录，再将%GRADLE_HOME%\bin加到PATH环境变量中，Gradle就安装配置好了。
+打开一个cmd输入gradle -v 验证一下：
+二、Kafka源代码下载
+http://kafka.apache.org/downloads.html
+三、下载gradle wrapper类库
+执行:gradle wrapper
+Error: Could not find or load main class org.gradle.wrapper.GradleWrapperMain
+
+========安装kafak步骤=======
