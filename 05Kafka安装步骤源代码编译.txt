@@ -1,3 +1,76 @@
+具体参数文档https://www.ibm.com/developerworks/cn/opensource/os-cn-spark-practice2/
+
+========Kafka 集群搭建步骤=======
+1. 机器准备
+准备三台机器搭建 Kafka 集群，IP 地址分别是 192.168.1.1，192.168.1.2，192.168.1.3，并且三台机器网络互通
+Kafka 安装包解压命令
+tar –xvf kafka_2.10-0.8.2.1
+
+创建 zookeeper 数据目录并设定服务器编号
+在所有三台服务器上执行下面操作。
+切换到当前用户工作目录，如/home/fams , 创建 zookeeper 保存数据的目录, 然后在这个目录下新建服务器编号文件
+mkdir zk_data
+cat N > myid
+注意需要保证 N 在三台服务器上取不同值，如分别取 1,2,3
+4. 编辑 zookeeper 配置文件
+编辑 config/zookeeper.properties 文件，增加以下配置：
+tickTime=2000
+dataDir=/home/fams/zk_data/
+clientPort=2181
+initLimit=5
+syncLimit=2
+server.1=192.168.1.1:2888:3888
+server.2=192.168.1.2:2888:3888
+server.3=192.168.1.3:2888:3888
+===clientPort：zookeeper 服务器会监听这个端口，然后等待客户端连接。
+==dataDir：zookeeper 的数据保存目录，我们也把 zookeeper 服务器的 ID 文件保存到这个目录下
+5．编辑 Kafka 配置文件
+编辑 config/server.properties 文件
+broker.id=0
+port=9092
+host.name=192.168.1.1
+zookeeper.contact=192.168.1.1:2181,192.168.1.2:2181,192.168.1.3:2181
+ log.dirs=/home/fams/kafka-logs
+
+
+//启动Zookeeper
+bin/zookeeper-server-start.sh config/zookeeper.properties &
+//启动Kafka
+bin/kafka-server-start.sh config/server.properties &
+
+8. 验证安装
+第一步，分别在三台机器上使用下面命令查看是否有 Kafka 和 zookeeper 相关服务进程
+ps –ef | grep kafka
+第二步，创建消息主题，并通过 console producer 和 console consumer 验证消息可以被正常的生产和消费
+bin/kafka-topics.sh --create \
+--replication-factor 3 \
+--partition 3 \
+--topic user-behavior-topic \
+--zookeeper 192.168.1.1:2181,192.168.1.2:2181,192.168.1.3:2181
+运行下面命令打开打开 console producer
+bin/kafka-console-producer.sh --broker-list 192.168.1.1:9092 --topic user-behavior-topic
+在另一台机器打开 console consumer
+./kafka-console-consumer.sh --zookeeper 192.168.1.2:2181 --topic user-behavior-topic --from-beginning
+然后如果在 producer console 输入一条消息，能从 consumer console 看到这条消息就代表安装是成功的
+
+
+
+=====启动报错Unrecognized VM option '+UseCompressedOops'=====
+1)编辑vi kafka-run-class.sh
+第一种解决方案:JAVA_HOME=/opt/jdk/jdk1.7
+第二种解决方式:
+注释掉
+KAFKA_JVM_PERFORMANCE_OPTS="-server -XX:+UseCompressedOops -XX:+UseParNewGC 
+-XX:+UseConcMarkSweepGC 
+-XX:+CMSClassUnloadingEnabled 
+-XX:+CMSScavengeBeforeRemark 
+-XX:+DisableExplicitGC -Djava.awt.headless=true"
+====Error occurred during initialization of VM Could not reserve enough space for object heap====
+原因及解决办法：
+查看kafka-server-start.sh配置文件，发现有heap设置信息：
+export KAFKA_HEAP_OPTS="-Xmx1G -Xms1G"
+
+
 Windows平台搭建Kafka源代码开发环境(Eclipse版本)
 一、Gradle安装配置
 https://www.gradle.org/downloads/ 下载最新的Gradle版本
@@ -9,4 +82,3 @@ http://kafka.apache.org/downloads.html
 执行:gradle wrapper
 Error: Could not find or load main class org.gradle.wrapper.GradleWrapperMain
 
-========安装kafak步骤=======

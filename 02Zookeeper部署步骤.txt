@@ -33,6 +33,9 @@ echo 1 > myid
 12)在spark1,spark2两个节点上分别启动zookeeper
 cd /opt/zookeeper3.4.9/
 bin/zkServer.sh start
+=======测试Zookeeper是否安装成功：==========
+$ZOOKEEPER_HOME/bin/zkCli.sh -server master:2181
+
 13)查看进程进否存在
   jps
 #QuorumPeerMain
@@ -56,7 +59,6 @@ export SPARK_DAEMON_JAVA_OPTS="-Dspark.deploy.recoveryMode=ZOOKEEPER -Dspark.dep
 (5) 查看spark1和spark2上运行的哪些进程
    jps
  
-
 
 
 ============启动zookeeper 客户端的时候报Will not attempt to authenticate using SASL (unknown error) ====================

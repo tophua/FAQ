@@ -1,9 +1,9 @@
-﻿192.168.0.39     mzhy								空间使用100%
+﻿192.168.0.39     mzhy					kafka(master1)		空间使用100%
 192.168.0.17     szmz2	   spark   			Mongodb(slave)8089	空间使用74%
 192.168.0.13     appdept3  master2		     	Mongodb(slave)8089	空间使用74%
 192.168.0.27	 xcsq	   spark	hoaddop0 8089				空间使用51%
 192.168.0.6	 shjz	   spark	hoaddop1				空间使用65%
-192.168.0.5	 shjz	   spark	hoaddop1	kafka			空间使用65%
+192.168.0.5				   		kafka(master0)		空间使用65%
  
 192.168.0.40	 dept3     master1 8080						空间使用84% 
 192.168.0.12	 mzhy2			hoaddop2       Mongodb(master)3306 	空间使用73% 
