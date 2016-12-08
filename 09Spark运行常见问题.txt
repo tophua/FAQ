@@ -1,3 +1,11 @@
+===========问题1：spark eclipse Class not found错误=============
+1)使用ecipse 导出jar包,
+2)SparkConf.setJars 设置jar位置,即可解决
+===========问题1：NativeCrc32.nativeComputeChunkedSumsByteArray错误=============
+【原因分析】hadoop.dll文件版本错误，替换对应的版本文件。由于hadoop.dll 版本问题出现的，这是由于hadoop.dll 版本问题，
+2.4之前的和自后的需要的不一样，需要选择正确的版本(包括操作系统的版本),并且在 Hadoop/bin和 C：\windows\system32 上将其替换
+下载地址:http://wenhai.iteye.com/blog/2288571
+
 ===========运行Spark-shell报错ERROR SparkUncaughtExceptionHandler=============
 1)把Spark-env.sh的
 SPARK_MASTER_IP=10.9.2.100或者域名
