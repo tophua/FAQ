@@ -43,7 +43,7 @@ log.retention.hours=168
 //启动Zookeeper
 bin/zookeeper-server-start.sh config/zookeeper.properties &
 //启动Kafka
-bin/kafka-server-start.sh config/server.properties &
+bin/kafka-server-start.sh config/server.properties >/dev/null 2>&1 & 
 
 8. 验证安装
 第一步，分别在三台机器上使用下面命令查看是否有 Kafka 和 zookeeper 相关服务进程
