@@ -149,3 +149,14 @@ service xinetd start
 
 4. 现在可以安装我们需要的rpm包了
 rpm -ivh telnet-server-0.17-35.i386.rpm
+============linux安装netcat方法=======================================
+1)http://sourceforge.net/projects/netcat/files/netcat/0.7.1/
+2)tar -zxvf netcat-0.7.1.tar.gz
+3)./configure --prefix=/opt/netcat
+4)make
+5)make install
+6)检验安装成功 nc -help成功
+
+7)nc -lp 2389 开启监听服务
+8)nc localhost 2389
+9)lsof -i:2389
