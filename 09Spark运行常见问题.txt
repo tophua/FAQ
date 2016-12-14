@@ -1,3 +1,6 @@
+===========问题1：spark.local.dir属性可指定Spark使用的本地磁盘多个目录=============
+1)spark.local.dir 属性可指定Spark使用的本地磁盘目录，其值可以是逗号分隔的列表以指定多个磁盘目录。
+2)如果该节点上也有HDFS目录，可以和HDFS共用同一个块磁盘。
 ===========问题1：spark eclipse Class not found错误=============
 1)使用ecipse 导出jar包,
 2)SparkConf.setJars 设置jar位置,即可解决
