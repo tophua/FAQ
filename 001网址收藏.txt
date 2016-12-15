@@ -2,3 +2,5 @@ Scala初学者指南
 http://udn.yyuap.com/doc/guides-to-scala-book/chp1-extractors.html
 jar包网址查找
 http://search.maven.org/
+Spark官方文档
+http://ifeve.com/spark-config/
