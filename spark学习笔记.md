@@ -303,8 +303,8 @@ Mapreduce在YARN上面的运行的详细过程
 
 在RDD中将依赖分成了两种类型：窄依赖和宽依赖，**窄依赖是指父****RDD的每个分区都只被子RDD一个分区使用**。相应的，那么宽依赖就是指**父RDD的分区被多个子RDD的分区所依赖。**
 
-
-
+## 2.0 spark 依赖包冲突的问题
+job.spark.config=--conf spark.driver.extraClassPath=guava-18.0.jar,jsr166e-1.1.0.jar,t-digest-3.0.jar,hppc-0.7.1.jar  --conf spark.executor.extraClassPath=guava-18.0.jar,jsr166e-1.1.0.jar,t-digest-3.0.jar,hppc-0.7.1.jar --conf spark.driver.userClassPathFirst=true
 
 
 
